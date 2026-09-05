@@ -14,7 +14,8 @@ const {
   updatePrintJobStatus,
   getPendingPrintJobs,
   claimPrintJob,
-  updateAgentJobStatus
+  updateAgentJobStatus,
+  cancelPrintJob
 } = require("./services/printService");
 
 const {
@@ -168,7 +169,6 @@ const requireAgentOnline = async (
     next();
 
   } catch (error) {
-
     console.error(
       "Agent online check error:",
       error
@@ -225,7 +225,7 @@ app.post(
         req.file.path;
 
       // ------------------------------------------------------
-      // GET PRINT SETTINGS
+      // GET BASIC PRINT SETTINGS
       // ------------------------------------------------------
 
       const printType =
@@ -233,6 +233,10 @@ app.post(
 
       const copies =
         Number(req.body.copies);
+
+      // ------------------------------------------------------
+      // VALIDATE PRINT TYPE
+      // ------------------------------------------------------
 
       if (
         ![
@@ -258,6 +262,10 @@ app.post(
         });
       }
 
+      // ------------------------------------------------------
+      // VALIDATE COPIES
+      // ------------------------------------------------------
+
       if (
         !Number.isInteger(copies) ||
         copies < 1 ||
@@ -278,6 +286,149 @@ app.post(
         return res.status(400).json({
           message:
             "Copies must be between 1 and 100"
+        });
+      }
+
+      // ------------------------------------------------------
+      // GET ADVANCED PRINT SETTINGS
+      // ------------------------------------------------------
+
+      const orientation =
+        req.body.orientation ||
+        "portrait";
+
+      const paperSize =
+        req.body.paperSize ||
+        "A4";
+
+      const fit =
+        req.body.fit ||
+        "shrink-to-fit";
+
+      const pageMargins =
+        req.body.pageMargins ||
+        "uniform";
+
+      const pageSelection =
+        req.body.pageSelection ||
+        "all";
+
+      const pageRange =
+        req.body.pageRange ||
+        "";
+
+      // ------------------------------------------------------
+      // VALIDATE ORIENTATION
+      // ------------------------------------------------------
+
+      if (
+        ![
+          "portrait",
+          "landscape"
+        ].includes(orientation)
+      ) {
+
+        fs.unlinkSync(localFilePath);
+
+        return res.status(400).json({
+          message:
+            "Invalid orientation"
+        });
+      }
+
+      // ------------------------------------------------------
+      // VALIDATE PAPER SIZE
+      // ------------------------------------------------------
+
+      if (
+        ![
+          "A4",
+          "Letter",
+          "Legal"
+        ].includes(paperSize)
+      ) {
+
+        fs.unlinkSync(localFilePath);
+
+        return res.status(400).json({
+          message:
+            "Invalid paper size"
+        });
+      }
+
+      // ------------------------------------------------------
+      // VALIDATE FIT
+      // ------------------------------------------------------
+
+      if (
+        ![
+          "shrink-to-fit",
+          "fit-to-page",
+          "actual-size"
+        ].includes(fit)
+      ) {
+
+        fs.unlinkSync(localFilePath);
+
+        return res.status(400).json({
+          message:
+            "Invalid fit option"
+        });
+      }
+
+      // ------------------------------------------------------
+      // VALIDATE PAGE MARGINS
+      // ------------------------------------------------------
+
+      if (
+        ![
+          "uniform",
+          "none",
+          "minimum"
+        ].includes(pageMargins)
+      ) {
+
+        fs.unlinkSync(localFilePath);
+
+        return res.status(400).json({
+          message:
+            "Invalid page margins"
+        });
+      }
+
+      // ------------------------------------------------------
+      // VALIDATE PAGE SELECTION
+      // ------------------------------------------------------
+
+      if (
+        ![
+          "all",
+          "range"
+        ].includes(pageSelection)
+      ) {
+
+        fs.unlinkSync(localFilePath);
+
+        return res.status(400).json({
+          message:
+            "Invalid page selection"
+        });
+      }
+
+      // ------------------------------------------------------
+      // PAGE RANGE VALIDATION
+      // ------------------------------------------------------
+
+      if (
+        pageSelection === "range" &&
+        !pageRange.trim()
+      ) {
+
+        fs.unlinkSync(localFilePath);
+
+        return res.status(400).json({
+          message:
+            "Page range is required"
         });
       }
 
@@ -315,6 +466,46 @@ app.post(
         req.file.originalname
       );
 
+      console.log(
+        "Print Type:",
+        printType
+      );
+
+      console.log(
+        "Copies:",
+        copies
+      );
+
+      console.log(
+        "Orientation:",
+        orientation
+      );
+
+      console.log(
+        "Paper Size:",
+        paperSize
+      );
+
+      console.log(
+        "Fit:",
+        fit
+      );
+
+      console.log(
+        "Page Margins:",
+        pageMargins
+      );
+
+      console.log(
+        "Page Selection:",
+        pageSelection
+      );
+
+      console.log(
+        "Page Range:",
+        pageRange || "All"
+      );
+
       // ------------------------------------------------------
       // UPLOAD TO GOOGLE DRIVE
       // ------------------------------------------------------
@@ -345,6 +536,7 @@ app.post(
 
       const job =
         await createPrintJob({
+
           jobId,
 
           fileName:
@@ -368,7 +560,20 @@ app.post(
 
           printType,
 
-          copies
+          copies,
+
+          orientation,
+
+          paperSize,
+
+          fit,
+
+          pageMargins,
+
+          pageSelection,
+
+          pageRange
+
         });
 
       // ------------------------------------------------------
@@ -403,6 +608,7 @@ app.post(
       // ------------------------------------------------------
 
       return res.status(201).json({
+
         message:
           "Print job created successfully",
 
@@ -414,6 +620,7 @@ app.post(
 
         fileName:
           job.fileName
+
       });
 
     } catch (error) {
@@ -450,11 +657,69 @@ app.post(
       }
 
       return res.status(500).json({
+
         message:
           "Failed to create print job",
 
         error:
           error.message
+
+      });
+    }
+  }
+);
+
+// ============================================================
+// CUSTOMER — CANCEL PRINT JOB
+// ============================================================
+
+app.patch(
+  "/api/print/:id/cancel",
+
+  async (req, res) => {
+
+    try {
+
+      const job =
+        await cancelPrintJob(
+          req.params.id
+        );
+
+      if (!job) {
+
+        return res.status(409).json({
+          message:
+            "Job cannot be cancelled because it is already printing or has finished."
+        });
+
+      }
+
+      console.log(
+        "Print job cancelled:",
+        job.jobId
+      );
+
+      return res.json({
+
+        message:
+          "Print job cancelled successfully.",
+
+        job
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Failed to cancel print job:",
+        error
+      );
+
+      return res.status(500).json({
+
+        message:
+          "Failed to cancel print job."
+
       });
     }
   }
@@ -551,7 +816,8 @@ app.patch(
         "Pending",
         "Printing",
         "Completed",
-        "Failed"
+        "Failed",
+        "Cancelled"
       ];
 
       if (
@@ -642,6 +908,7 @@ app.get(
       // ------------------------------------------------------
 
       await AgentStatus.findOneAndUpdate(
+
         {
           agentId:
             "default-agent"
@@ -673,10 +940,12 @@ app.get(
         await getPendingPrintJobs();
 
       res.json({
+
         count:
           jobs.length,
 
         jobs
+
       });
 
     } catch (error) {
@@ -719,8 +988,12 @@ app.get(
       ) {
 
         return res.json({
+
           online: false,
-          status: "offline"
+
+          status:
+            "offline"
+
         });
       }
 
@@ -752,6 +1025,7 @@ app.get(
 
         lastSeen:
           agent.lastSeen
+
       });
 
     } catch (error) {
@@ -770,6 +1044,7 @@ app.get(
 
         message:
           "Unable to check print service"
+
       });
     }
   }
@@ -868,7 +1143,6 @@ app.get(
       temporaryFile =
         path.join(
           UPLOAD_DIR,
-
           `agent-${Date.now()}-${safeFileName}`
         );
 
@@ -895,7 +1169,6 @@ app.get(
 
       res.download(
         temporaryFile,
-
         safeFileName,
 
         (error) => {
@@ -976,6 +1249,7 @@ app.get(
 
         error:
           error.message
+
       });
     }
   }
@@ -1092,6 +1366,7 @@ app.use(
       message:
         error.message ||
         "Something went wrong"
+
     });
   }
 );

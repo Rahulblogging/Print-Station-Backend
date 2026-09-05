@@ -1,12 +1,10 @@
 const PrintJob = require("../models/PrintJob");
 
-
-// ============================================================
+// ========================================
 // CREATE PRINT JOB
-// ============================================================
+// ========================================
 
 const createPrintJob = async (jobData) => {
-
   const job = await PrintJob.create({
     jobId: jobData.jobId,
 
@@ -26,154 +24,140 @@ const createPrintJob = async (jobData) => {
     googleDriveUrl:
       jobData.googleDriveUrl || null,
 
+    // Basic print settings
     printType: jobData.printType,
 
     copies: jobData.copies,
 
-    status: "Pending"
+    // Advanced print settings
+    orientation:
+      jobData.orientation || "portrait",
+
+    paperSize:
+      jobData.paperSize || "A4",
+
+    fit:
+      jobData.fit || "shrink-to-fit",
+
+    pageMargins:
+      jobData.pageMargins || "uniform",
+
+    pageSelection:
+      jobData.pageSelection || "all",
+
+    pageRange:
+      jobData.pageRange || "",
+
+    // Initial status
+    status: "Pending",
   });
 
   return job;
 };
 
-
-// ============================================================
+// ========================================
 // GET ALL PRINT JOBS
-// ============================================================
+// ========================================
 
 const getAllPrintJobs = async () => {
-
-  return await PrintJob
-    .find()
-    .sort({
-      createdAt: -1
-    });
-
-};
-
-
-// ============================================================
-// GET PRINT JOB BY ID
-// ============================================================
-
-const getPrintJobById = async (
-  jobId
-) => {
-
-  return await PrintJob.findOne({
-    jobId
+  return await PrintJob.find().sort({
+    createdAt: -1,
   });
-
 };
 
+// ========================================
+// GET PRINT JOB BY ID
+// ========================================
 
-// ============================================================
-// UPDATE JOB STATUS
-// ============================================================
+const getPrintJobById = async (jobId) => {
+  return await PrintJob.findOne({
+    jobId,
+  });
+};
+
+// ========================================
+// UPDATE PRINT JOB STATUS
+// ========================================
 
 const updatePrintJobStatus = async (
   jobId,
   status
 ) => {
-
   return await PrintJob.findOneAndUpdate(
-    {
-      jobId
-    },
-    {
-      status
-    },
-    {
-      new: true
-    }
+    { jobId },
+    { status },
+    { new: true }
   );
-
 };
 
-
-// ============================================================
+// ========================================
 // GET PENDING PRINT JOBS
-// ============================================================
+// ========================================
 
 const getPendingPrintJobs = async () => {
-
-  return await PrintJob
-    .find({
-      status: "Pending"
-    })
-    .sort({
-      createdAt: 1
-    });
-
+  return await PrintJob.find({
+    status: "Pending",
+  }).sort({
+    createdAt: 1,
+  });
 };
 
-
-// ============================================================
+// ========================================
 // CLAIM PRINT JOB
-// ============================================================
+// ========================================
 
-const claimPrintJob = async (
-  jobId
-) => {
-
+const claimPrintJob = async (jobId) => {
   return await PrintJob.findOneAndUpdate(
     {
       jobId,
-      status: "Pending"
+      status: "Pending",
     },
     {
-      status: "Printing"
+      status: "Printing",
     },
     {
-      new: true
+      new: true,
     }
   );
-
 };
 
-
-// ============================================================
+// ========================================
 // UPDATE AGENT JOB STATUS
-// ============================================================
+// ========================================
 
 const updateAgentJobStatus = async (
   jobId,
   status
 ) => {
-
   return await PrintJob.findOneAndUpdate(
-    {
-      jobId
-    },
-    {
-      status
-    },
-    {
-      new: true
-    }
+    { jobId },
+    { status },
+    { new: true }
   );
-
 };
 
-
-// ============================================================
-// EXPORT
-// ============================================================
+const cancelPrintJob = async (jobId) => {
+  return await PrintJob.findOneAndUpdate(
+    {
+      jobId,
+      status: "Pending",
+    },
+    {
+      status: "Cancelled",
+    },
+    {
+      new: true,
+    }
+  );
+};
 
 module.exports = {
-
   createPrintJob,
-
   getAllPrintJobs,
-
   getPrintJobById,
-
   updatePrintJobStatus,
-
   getPendingPrintJobs,
-
   claimPrintJob,
-
-  updateAgentJobStatus
-
+  updateAgentJobStatus,
+  cancelPrintJob,
 };
